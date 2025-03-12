@@ -25,16 +25,16 @@ export default function BusinessCardGenerator() {
   };
 
   const generateVCard = useMemo(() => {
-    return 'BEGIN:VCARD\nVERSION:3.0\nN:${formData.lastName};${formData.firstName};;;\nFN:${formData.firstName} ${formData.lastName}\nORG:${formData.company}\nTITLE:${formData.position}\nTEL;WORK:${formData.phone}\nTEL;FAX:${formData.fax}\nEMAIL:${formData.email}\nADR;WORK:;;${formData.address.replace(/,/g, ";")}\nURL:${formData.website}\nEND:VCARD;'
+    return `BEGIN:VCARD\nVERSION:3.0\nN:${formData.lastName};${formData.firstName};;;\nFN:${formData.firstName} ${formData.lastName}\nORG:${formData.company}\nTITLE:${formData.position}\nTEL;WORK:${formData.phone}\nTEL;FAX:${formData.fax}\nEMAIL:${formData.email}\nADR;WORK:;;${formData.address.replace(/,/g, ";")}\nURL:${formData.website}\nEND:VCARD`;
   }, [formData]);
 
   const downloadPDF = async () => {
-    const pdf = new jsPDF({ unit: "mm", format: [85, 55], orientation: "landscape" });
+    const pdf = new jsPDF({ unit: "mm", format: [85, 55], orientation: "landscape", pdfVersion: "1.4" });
 
     if (frontRef.current) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const frontCanvas = await html2canvas(frontRef.current, { scale: 3, useCORS: true });
-      const frontImgData = frontCanvas.toDataURL("image/png");
+      const frontCanvas = await html2canvas(frontRef.current, { scale: 5, backgroundColor: null, useCORS: true });
+      const frontImgData = frontCanvas.toDataURL("image/png", 1.0);
       pdf.addImage(frontImgData, "PNG", 0, 0, 85, 55);
     }
 
@@ -130,7 +130,7 @@ export default function BusinessCardGenerator() {
         {/* Vorderseite der Visitenkarte bleibt weiß */}
         {formData.firstName || formData.lastName ? (
     <div ref={frontRef} className="w-[85mm] h-[55mm] bg-white text-black p-4 shadow-lg flex flex-col justify-end text-left relative pb-4 rounded-lg">
-      <img src={logo} alt="Firmenlogo" className="absolute top-2 right-2 w-48" />
+      <img src={logo} alt="Firmenlogo" crossOrigin="anonymous" className="absolute top-2 right-2 w-48" />
       <h2 className="text-[10px] font-bold">{formData.firstName} {formData.lastName}</h2>
       <p className="text-[8px] font-semibold">{formData.position}</p>
       <p className="text-[8px]">{formData.company}</p>
