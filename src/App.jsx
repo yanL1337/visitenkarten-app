@@ -3,6 +3,8 @@ import { QRCodeSVG } from "qrcode.react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import logo from "./assets/logo.png";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 import './App.css';
 
 export default function BusinessCardGenerator() {
@@ -29,30 +31,42 @@ export default function BusinessCardGenerator() {
   }, [formData]);
 
   const downloadPDF = async () => {
-    const pdf = new jsPDF({ unit: "mm", format: [85, 55], orientation: "landscape", pdfVersion: "1.4" });
-
+    const zip = new JSZip();
+  
+    // Vorderseite rendern
     if (frontRef.current) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const frontCanvas = await html2canvas(frontRef.current, { scale: 5, backgroundColor: null, useCORS: true });
+      const frontCanvas = await html2canvas(frontRef.current, { scale: 5, useCORS: true, backgroundColor: null });
       const frontImgData = frontCanvas.toDataURL("image/png", 1.0);
-      pdf.addImage(frontImgData, "PNG", 0, 0, 85, 55);
+  
+      const frontPDF = new jsPDF({ unit: "mm", format: [85, 55], orientation: "landscape", pdfVersion: "1.4" });
+      frontPDF.addImage(frontImgData, "PNG", 0, 0, 85, 55);
+      const frontBlob = frontPDF.output("blob");
+      zip.file("visitenkarte-vorne.pdf", frontBlob);
     }
-
-    pdf.addPage();
-
-    backRef.current.style.display = "flex";
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
+  
+    // Rückseite rendern
     if (backRef.current) {
-      const backCanvas = await html2canvas(backRef.current, { scale: 3, useCORS: true });
-      const backImgData = backCanvas.toDataURL("image/png");
-      pdf.addImage(backImgData, "PNG", 0, 0, 85, 55);
+      backRef.current.style.display = "flex";
+      await new Promise((resolve) => setTimeout(resolve, 500));
+  
+      const backCanvas = await html2canvas(backRef.current, { scale: 5, useCORS: true, backgroundColor: null });
+      const backImgData = backCanvas.toDataURL("image/png", 1.0);
+  
+      const backPDF = new jsPDF({ unit: "mm", format: [85, 55], orientation: "landscape", pdfVersion: "1.4" });
+      backPDF.addImage(backImgData, "PNG", 0, 0, 85, 55);
+      const backBlob = backPDF.output("blob");
+      zip.file("visitenkarte-hinten.pdf", backBlob);
+  
+      backRef.current.style.display = "none";
     }
-
-    backRef.current.style.display = "none";
-
-    pdf.save("visitenkarte.pdf");
+  
+    // ZIP erstellen & speichern
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      saveAs(content, "visitenkarten.zip");
+    });
   };
+  
 
   return (
     <div className="flex flex-col items-center p-4 bg-gray-900 text-gray-200 min-h-screen">
@@ -105,7 +119,7 @@ export default function BusinessCardGenerator() {
       }));
     }}
   >
-    <option value="" disabled selected>Wähle einen Standort</option>
+    <option value="" disabled>Wähle einen Standort</option>
     <option value="Klinik Weser">Klinik Weser</option>
     <option value="Brunswiek">Brunswiek</option>
     <option value="Friedrichshöhe">Friedrichshöhe</option>
@@ -129,17 +143,70 @@ export default function BusinessCardGenerator() {
   
         {/* Vorderseite der Visitenkarte bleibt weiß */}
         {formData.firstName || formData.lastName ? (
-    <div ref={frontRef} className="w-[85mm] h-[55mm] bg-white text-black p-4 shadow-lg flex flex-col justify-end text-left relative pb-4 rounded-lg">
-      <img src={logo} alt="Firmenlogo" crossOrigin="anonymous" className="absolute top-2 right-2 w-48" />
-      <h2 className="text-[10px] font-bold">{formData.firstName} {formData.lastName}</h2>
-      <p className="text-[8px] font-semibold">{formData.position}</p>
-      <p className="text-[8px]">{formData.company}</p>
-      <p className="text-[8px]">{formData.address}</p>
-      <p className="text-[8px]">Telefon: {formData.phone}</p>
-      <p className="text-[8px]">Fax: {formData.fax}</p>
-      <p className="text-[8px]">{formData.email}</p>
-      <p className="text-[8px]">{formData.website}</p>
-    </div>
+     <div
+     ref={frontRef}
+     className="w-[85mm] h-[55mm] bg-white text-[#2b2b2b] p-4 shadow-lg relative rounded-lg flex flex-col justify-between font-sans"
+   >
+     {/* Logo oben rechts (doppelte Größe) */}
+     <img
+       src={logo}
+       alt="Logo"
+       crossOrigin="anonymous"
+       className="absolute top-2 right-2 w-48 h-auto"
+     />
+   
+     {/* Name + Position (links) UND rechte Spalte (Indikationen + Kontakt) */}
+     <div className="flex justify-between mt-[20mm]">
+       {/* Linke Seite: Name & Position */}
+       <div className="text-left">
+         <h2 className="text-[10px] font-bold">{formData.firstName} {formData.lastName}</h2>
+         <p className="text-[8px]">{formData.position}</p>
+       </div>
+   
+       {/* Rechte Spalte: Indikationen + Telefonblock (vertikal, linksbündig) */}
+       <div
+         className="text-left text-[6.5px] leading-tight max-w-[42mm]"
+         style={{ color: "#374151" }}
+       >
+         <p>Indikationen Orthopädie,</p>
+         <p>Anschlussheilbehandlung (AHB),</p>
+         <p>Verhaltensmedizinisch</p>
+         <p>orientierte Rehabilitation (VOR),</p>
+         <p>Psychosomatik</p>
+         <div className="mt-1">
+           <p>Telefon: {formData.phone}</p>
+           <p>Telefax: {formData.fax}</p>
+         </div>
+       </div>
+     </div>
+   
+     {/* Adresse */}
+     <div className="flex justify-between text-[7px] mt-2">
+       <div className="text-left leading-tight">
+         <p className="font-semibold">Reha-Zentrum Bad Pyrmont</p>
+         <p>Therapiezentren {formData.location}</p>
+         <p>{formData.address}</p>
+       </div>
+       <div></div>
+     </div>
+   
+     {/* Footer: jetzt linksbündig & bündig mit Adresse */}
+     <div
+       className="text-[7px] pt-1"
+       style={{ color: "#374151", textAlign: "left" }}
+     >
+       <p>
+         {formData.website} &nbsp;&middot;&nbsp; E-Mail: {formData.email}
+       </p>
+     </div>
+   </div>
+   
+    
+        
+
+
+ 
+
 ) : (
     <p className="text-gray-400 text-sm">Gib deine Daten ein, um eine Vorschau zu sehen.</p>
 )}
